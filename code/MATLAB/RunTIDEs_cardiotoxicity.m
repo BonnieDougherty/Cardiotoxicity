@@ -7,13 +7,13 @@ initCobraToolbox
 changeCobraSolver('ibm_cplex', 'all');
 
 % Load in the heart model
-load('iRno_heart.mat')
+load('data/iRno_heart.mat')
 
 model = rno_heart_model;
 
 % Generate a taskStructure for determining the min set of reactions
 % Convert from original format to COBRA format
-inputFile = ['AllTasks_CardiomyocyteSpecific_RAT_COBRA.xlsx'];
+inputFile = ['data/AllTasks_CardiomyocyteSpecific_RAT_COBRA.xlsx'];
 taskStructure=generateTaskStructure_BVD(inputFile);
 
 % calculate the reactions necessary for each task

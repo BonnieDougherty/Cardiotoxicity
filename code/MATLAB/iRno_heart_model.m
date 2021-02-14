@@ -96,7 +96,7 @@ model = rno_heart_model;
 
 % Check completion of metabolic tasks from iCardio
 inputFile = ['data/AllTasks_CardiomyocyteSpecific_RAT.xlsx'];
-[FINAL] = generateCobraTaskList_new(inputFile, rno_cobra_load);
+[FINAL] = generateCobraTaskList(inputFile, rno_cobra_load);
 xlswrite('data/AllTasks_CardiomyocyteSpecific_RAT_COBRA.xlsx', FINAL, 'TASKS')
 inputFile = ['data/AllTasks_CardiomyocyteSpecific_RAT_COBRA.xlsx'];
 
@@ -104,7 +104,6 @@ rno_tasks = checkMetabolicTasks_BVD(model,inputFile);
 
 %% Look at the reactions that are in iRno that aren't in iHsa
 % All reactions are in both models, bounds are different
-
 % 72 reactions are disabled in iHsa
 iHsa_removed = [];
 for rxn = 1:length(hsa_cobra_load.rxns)
