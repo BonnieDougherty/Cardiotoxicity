@@ -61,32 +61,21 @@ end
 parpool(4);
 num_iterations = 1000;
 
-%% Writing data to a file for enricher() function in R
-ID = [];
-reactions = [];
-for task = 1:length(minRxnList)
-    ID = [ID;repmat(string(minRxnList(task).id), length(minRxnList(task).rxns),1)];
-    reactions = [reactions; minRxnList(task).rxns];
-end
-
-temp = table(ID, reactions);
-writetable(temp, 'C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\data\TIDEs_rxns.csv', 'Delimiter', ',')
-
 %% Debugging reading in table problems
-opts = detectImportOptions('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\DEGs\dougherty_rno_cardio_t24_5fu_gene_deseq2.csv');
+opts = detectImportOptions('data/dougherty_rno_cardio_t24_5fu_gene_deseq2.csv');
 opts.Delimiter = {','};
 
 %% Run TIDEs analysis for cardiotoxicity data
 % Load in data that had data for all genes, not just genes that are DEGs
 % Read in data from RNA-seq analysis
-Dox6hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_Dox_6h_gene_deseq2_01fdr.csv', opts);
-Dox24hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_Dox_24h_gene_deseq2_01fdr.csv', opts);
+Dox6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_dox_gene_deseq2.csv', opts);
+Dox24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_dox_gene_deseq2.csv', opts);
 
-Ace6hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_Ace_6h_gene_deseq2_01fdr.csv', opts);
-Ace24hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_Ace_24h_gene_deseq2_01fdr.csv', opts);
+Ace6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_ace_gene_deseq2.csv', opts);
+Ace24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_ace_gene_deseq2.csv', opts);
 
-FiveFU6hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_5FU_6h_gene_deseq2_01fdr.csv', opts);
-FiveFU24hrs = readtable('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\RNA-seq DEG data\dougherty_rno_cardio_t6_5FU_24h_gene_deseq2_01fdr.csv', opts);
+FiveFU6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_5FU_gene_deseq2.csv', opts);
+FiveFU24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_5FU_gene_deseq2.csv', opts);
 
 %% Run test expression mapping to make sure EntrezIDs are formatted correctly
 data.gene = Dox6hrs.EntrezID;
@@ -133,7 +122,7 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Dox6hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/Dox6hrs.xlsx', data_save)
 
 data = Dox24hrs;
 % Save individual variable names to xlsx files in R/data folder
@@ -144,7 +133,7 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Dox24hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/Dox24hrs.xlsx', data_save)
 
 %% Ace data
 data = Ace6hrs;
@@ -156,7 +145,7 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Ace6hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/Ace6hrs.xlsx', data_save)
 
 data = Ace24hrs;
 % Save individual variable names to xlsx files in R/data folder
@@ -167,7 +156,7 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Ace24hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/Ace24hrs.xlsx', data_save)
 
 %% FiveFU
 data = FiveFU6hrs;
@@ -179,7 +168,7 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\FiveFU6hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/FiveFU6hrs.xlsx', data_save)
 
 data = Five5FU24hrs;
 % Save individual variable names to xlsx files in R/data folder
@@ -190,26 +179,26 @@ for k = 1:length(data)
     data_save{k,4} = data(k).significance;
     data_save{k,3} = data(k).taskScore;
 end
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\FiveFU24hrs_01fdr.xlsx', data_save)
+xlswrite('data/TIDEs/FiveFU24hrs.xlsx', data_save)
 
 %% Save the random data sets
 data = Ace6hrs_random; 
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Ace6hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/Ace6hrs_random.xlsx', data);
 
 data = Dox24hrs_random;
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Dox24hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/Dox24hrs_random.xlsx', data);
 
 data = Ace24hrs_random; 
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Ace24hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/Ace24hrs_random.xlsx', data);
 
 data = Dox6hrs_random;
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\Dox6hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/Dox6hrs_random.xlsx', data);
 
 data = FiveFU6hrs_random; 
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\5FU6hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/5FU6hrs_random.xlsx', data);
 
 data = Five5FU24hrs_random;
-xlswrite('C:\Users\bvd5nq\Documents\R scripts\Analyzing RNA-seq data\TIDEs\5FU24hrs_random_01fdr.xlsx', data);
+xlswrite('data/TIDEs/5FU24hrs_random.xlsx', data);
 
 %% Save the results to a MATLAB file
-save('cardiotoxicity.mat','Ace24hrs','Ace6hrs','Dox24hrs','Dox6hrs','FiveFU24hrs','FiveFU6hrs')
+save('data/TIDEs/cardiotoxicity.mat','Ace24hrs','Ace6hrs','Dox24hrs','Dox6hrs','FiveFU24hrs','FiveFU6hrs')
