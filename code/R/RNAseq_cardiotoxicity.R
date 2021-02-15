@@ -147,6 +147,8 @@ convertIDs$entrez <- mapIds(org.Rn.eg.db,
 #### Running differential expression analysis with DESeq2
 dds <- DESeq(dds)
 
+save(dds, file = "data/RNA-seq/PCA_transcript.R")
+
 # Save the raw counts to a file for GEO upload
 data.to.save = counts(dds)
 colnames(data.to.save) = sampleTable$condition
