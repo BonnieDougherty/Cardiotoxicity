@@ -8,13 +8,13 @@ library(tidyverse)
 library(pheatmap)
 library(dplyr)
 library(viridis)
-
+library(ggpubr)
 
 
 ######## Impute, log transform, and mean center data #################3
 # Read in the original raw intensity values
 raw.data <- read.xlsx(file = "results/supplement/Supplemental File 3.xlsx", 
-                      sheetName = "Raw", startRow = 6, 
+                      sheetName = "raw", startRow = 6, 
                       header = TRUE)
 colnames(raw.data)[79:81] <- c('BLANK.1','BLANK.2','BLANK.3')
 # Keep PUBCHEM and KEGG for mapping back to the iRno model
@@ -100,11 +100,15 @@ meanscale <- function(z){
 scaled.data <- log.data
 scaled.data[,-1] <- meanscale(scaled.data[,-1])
 
-write.xlsx(scaled.data %>% as.data.frame(), file = "results/supplement/Supplemental File 3.xlsx", 
+write.xlsx(scaled.data %>% as.data.frame(),
+           file = "results/supplement/Supplemental File 3.xlsx", 
            sheetName = "scaled", 
            row.names = FALSE, append = TRUE)
 
 ######################## Perform Mann-Whitney for time and condition ##################################
+
+metadata.master = read.xlsx(file = "data/metabolomics/metabolomics_metadata.xlsx", 
+                                sheetIndex = 1)
 
 # Start from the scaled data
 data <- scaled.data %>% 
@@ -124,11 +128,11 @@ all.results <- data.frame()
 comparisons <- data.frame(Comparison = c('5FU_24h - DMSO1_24h', '5FU_6h - DMSO1_6h',
                                          'Ace_24h - DMSO2_24h','Ace_6h - DMSO2_6h',
                                          'Dox_24h - DMSO2_24h','Dox_6h - DMSO2-6h', 
-                                         'Blank - 5FU_24h', 'Blank - 5FU_6h',
-                                         'Blank - Ace_24h', 'Blank - Ace_6h',
-                                         'Blank - DMSO1_24h','Blank - DMSO1_6h', 
-                                         'Blank - DMSO2_24h','Blank - DMSO2_6h',
-                                         'Blank - Dox_24h','Blank - Dox_6h'),
+                                         '5FU_24h - Blank', '5FU_6h - Blank',
+                                         'Ace_24h - Blank', 'Ace_6h - Blank',
+                                         'DMSO1_24h - Blank','DMSO1_6h - Blank', 
+                                         'DMSO2_24h - Blank','DMSO2_6h - Blank',
+                                         'Dox_24h - Blank','Dox_6h - Blank'),
                           x = c('5FU_24h','5FU_6h','Ace_24h','Ace_6h','Dox_24h','Dox_6h',
                                 '5FU_24h','5FU_6h','Ace_24h','Ace_6h','DMSO1_24h','DMSO1_6h','DMSO2_24h','DMSO2_6h','Dox_24h','Dox_6h'),
                           y = c('DMSO1_24h','DMSO1_6h','DMSO2_24h','DMSO2_6h','DMSO2_24h','DMSO2_6h',
@@ -162,6 +166,26 @@ all.results$p.adj <- p.adjust(all.results$p.unadj, method = "BH")
 all.results <- all.results %>% 
   mutate(p.adj = ifelse(is.na(p.adj), 1, p.adj))
 
+# Plot glucose results
+data$group = factor(data$group, 
+                    level = c('Blank','5FU_6h','DMSO1_6h','5FU_24h','DMSO1_24h', 
+                              'Ace_6h','Dox_6h','DMSO2_6h','Ace_24h','Dox_24h','DMSO2_24h'))
+ggplot(data %>% filter(BIOCHEMICAL == "glucose"), 
+       aes(x = group, y = value)) +
+  geom_jitter(width = 0.15) + 
+  stat_compare_means(comparisons = list(c('Dox_24h','DMSO2_24h'), 
+                                        c('5FU_24h','DMSO1_24h'), 
+                                        c('5FU_6h','DMSO1_6h')))
+
+# Confirm direction of change in production/consumption
+ggplot(data %>% filter(BIOCHEMICAL == "1-methyladenosine"), 
+       aes(x = group, y = value)) +
+  geom_jitter(width = 0.15) + 
+  stat_compare_means(comparisons = list(c('Dox_24h','Blank'), 
+                                        c('Ace_24h','Blank'), 
+                                        c('DMSO1_24h','Blank'), 
+                                        c('DMSO2_24h','Blank')))
+
 
 blank.comparisons <- all.results %>% 
   filter(group == "Blank") %>% 
@@ -170,7 +194,7 @@ blank.comparisons <- all.results %>%
                unique() %>% 
                filter(!(group == "Blank" & Timepoint == "6h")) %>% 
                filter(!(group == "Blank" & Timepoint == "24h"))) %>% 
-  separate(comparison, sep = "Blank - ", into = c("junk", "comparison"), remove = TRUE) %>% 
+  separate(comparison, sep = " - Blank", into = c("comparison","junk"), remove = TRUE) %>% 
   select(-junk)
 
 save(blank.comparisons, file = "data/blank_metabolomics.Rdata")
@@ -208,16 +232,9 @@ final.data <- all.results %>%
 final.data %>% filter(p.adj < 0.1) %>% group_by(group) %>% dplyr::count()
 
 
-write.xlsx(file = "C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/data/final_metabolomics.xlsx", 
-           x = final.data, 
-           row.names = FALSE, 
-           col.names = TRUE)
+write.xlsx(final.data,
+           file = "results/supplement/Supplemental File 3.xlsx", 
+           sheetName = "differential", 
+           row.names = FALSE, append = TRUE)
 
-data$Drug = factor(data$Drug, 
-                   levels = c("Blank","5FU","DMSO1","Ace", "Dox","DMSO2"))
 
-# Dot plots of selected metabolites
-data %>% filter(BIOCHEMICAL == "glucose") %>% 
-  ggplot(aes(x = Drug, y = value)) + 
-  geom_jitter(aes(color = Timepoint), width = 0.05) + 
-  theme_bw()
