@@ -197,7 +197,7 @@ blank.comparisons <- all.results %>%
   separate(comparison, sep = " - Blank", into = c("comparison","junk"), remove = TRUE) %>% 
   select(-junk)
 
-save(blank.comparisons, file = "data/blank_metabolomics.Rdata")
+save(blank.comparisons, file = "data/metabolomics/blank_metabolomics.Rdata")
 
 # Inter join with meta data
 all.results <- all.results %>% 
