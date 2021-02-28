@@ -62,8 +62,9 @@ parpool(4);
 num_iterations = 1000;
 
 %% Debugging reading in table problems
-opts = detectImportOptions('data/dougherty_rno_cardio_t24_5fu_gene_deseq2.csv');
+load('opts.mat')
 opts.Delimiter = {','};
+opts.VariableNames = {'EntrezID','logfc','pval','fdr','ave'};
 
 %% Run TIDEs analysis for cardiotoxicity data
 % Load in data that had data for all genes, not just genes that are DEGs
