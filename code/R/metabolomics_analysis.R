@@ -106,7 +106,6 @@ write.xlsx(scaled.data %>% as.data.frame(),
            row.names = FALSE, append = TRUE)
 
 ######################## Perform Mann-Whitney for time and condition ##################################
-
 metadata.master = read.xlsx(file = "data/metabolomics/metabolomics_metadata.xlsx", 
                                 sheetIndex = 1)
 
