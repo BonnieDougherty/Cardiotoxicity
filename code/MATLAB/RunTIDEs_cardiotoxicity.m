@@ -202,4 +202,15 @@ data = Five5FU24hrs_random;
 xlswrite('data/TIDEs/5FU24hrs_random.xlsx', data);
 
 %% Save the results to a MATLAB file
-save('data/TIDEs/cardiotoxicity.mat','Ace24hrs','Ace6hrs','Dox24hrs','Dox6hrs','FiveFU24hrs','FiveFU6hrs')
+save('data/TIDEs/cardiotoxicity.mat','minRxnList','Ace24hrs','Ace6hrs','Dox24hrs','Dox6hrs','FiveFU24hrs','FiveFU6hrs')
+
+%% Save list of reactions from metabolic tasks
+ID = [];
+reactions = [];
+for task = 1:length(minRxnList)
+    ID = [ID;repmat(string(minRxnList(task).id), length(minRxnList(task).rxns),1)];
+    reactions = [reactions; minRxnList(task).rxns];
+end
+
+temp = table(ID, reactions);
+writetable(temp, 'data/TIDEs/TIDEs_rxns.csv', 'Delimiter', ',')
