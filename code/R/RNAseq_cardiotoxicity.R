@@ -194,7 +194,9 @@ data.frame(DESeq2::results(dds,
   #mutate(EntrezID = as.character(EntrezID)) %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t6_ace_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
+
 # Ace 24hrs
 data.frame(DESeq2::results(dds,
                            contrast = c("condition","Ace_24","DMSO2_24"), 
@@ -204,7 +206,9 @@ data.frame(DESeq2::results(dds,
   tibble::rownames_to_column(var = "EntrezID") %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t24_ace_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
+
 # Dox 6hrs
 data.frame(DESeq2::results(dds,
                            contrast = c("condition","Dox_6","DMSO2_6"), 
@@ -214,7 +218,9 @@ data.frame(DESeq2::results(dds,
   tibble::rownames_to_column(var = "EntrezID") %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t6_dox_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
+
 # Dox 24hrs
 data.frame(DESeq2::results(dds,
                            contrast = c("condition","Dox_24","DMSO2_24"), 
@@ -224,7 +230,9 @@ data.frame(DESeq2::results(dds,
   tibble::rownames_to_column(var = "EntrezID") %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t24_dox_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
+
 # 5FU 6hrs
 data.frame(DESeq2::results(dds,
                            contrast = c("condition","5FU_6","DMSO1_6"), 
@@ -234,7 +242,9 @@ data.frame(DESeq2::results(dds,
   tibble::rownames_to_column(var = "EntrezID") %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t6_5fu_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
+
 # 5FU 24hrs
 data.frame(DESeq2::results(dds,
                            contrast = c("condition","5FU_24","DMSO1_24"), 
@@ -244,6 +254,7 @@ data.frame(DESeq2::results(dds,
   tibble::rownames_to_column(var = "EntrezID") %>% 
   dplyr::select(EntrezID, log2FoldChange, pvalue, padj, baseMean) %>% 
   dplyr::rename("logfc" = log2FoldChange, "pval" = pvalue, "fdr" = padj, "ave" = baseMean) %>% 
+  mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
   write.table(paste0(path.directory, "dougherty_rno_cardio_t24_5fu_gene_deseq2.csv"), sep = ",", quote = F, row.names = F)
 
 
@@ -264,6 +275,6 @@ all.results = rbind(read.csv(file = "data/RNA-seq/dougherty_rno_cardio_t24_5fu_g
           mutate(condition = "Dox_6", treatment = "Dox", timepoint = "6h")) %>% 
   dplyr::select(condition, treatment, timepoint, EntrezID, logfc, pval, fdr)
 write.csv(all.results, 
-           file = "data/RNA-seq/differential_expression.xlsx", 
+           file = "data/RNA-seq/differential_expression.csv", 
           row.names = FALSE)
 
