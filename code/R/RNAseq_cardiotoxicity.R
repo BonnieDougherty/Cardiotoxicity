@@ -73,6 +73,27 @@ sampleTable <- data.frame(condition, Drug = metadata$Drug, Timepoint = factor(me
 # Create row names based on the genes in the same order
 rownames(sampleTable) <- colnames(txi$counts)
 
+# Use the tximport function to account for differences in transcript length (allows comparison between genes in a sample)
+# and differences in library size (allows comparison between samples) 
+# Output will be used as an input for RIPTIDE algorithm
+lengthScaledTPM <- tximport::tximport(files, 
+                                      type = "kallisto", 
+                                      txOut = FALSE,
+                                      countsFromAbundance = "scaledTPM",
+                                      tx2gene = tx2gene)
+lengthScaledTPM <- DESeq2::DESeqDataSetFromTximport(lengthScaledTPM,sampleTable,~condition)
+
+# Create Gene level analysis in DESeq2 format
+lengthScaledTPM <- DESeq2::DESeq(lengthScaledTPM, minReplicatesForReplace = Inf)
+
+# Pull out normalized counts for GSEA
+data.to.save <- data.frame(NAME = rownames(DESeq2::counts(lengthScaledTPM, normalized = TRUE)),
+                           DESCRIPTION = "na",
+                           DESeq2::counts(lengthScaledTPM, normalized=TRUE))
+write.table(x = data.to.save, 
+            file = "data/RNA-seq/scaledTPMs.txt",
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
 ############################################ DESeq2 for DEG analysis ###################################################
 # Generate a DESeq2 dataset
 # Import TxImport Results into DESeq2 structure
