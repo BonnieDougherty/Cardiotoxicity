@@ -70,13 +70,13 @@ opts.VariableNames = {'EntrezID','logfc','pval','fdr','ave'};
 % Load in data that had data for all genes, not just genes that are DEGs
 % Read in data from RNA-seq analysis
 Dox6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_dox_gene_deseq2.csv', opts);
-Dox24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_dox_gene_deseq2.csv', opts);
+Dox24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t24_dox_gene_deseq2.csv', opts);
 
 Ace6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_ace_gene_deseq2.csv', opts);
-Ace24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_ace_gene_deseq2.csv', opts);
+Ace24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t24_ace_gene_deseq2.csv', opts);
 
 FiveFU6hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_5FU_gene_deseq2.csv', opts);
-FiveFU24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t6_5FU_gene_deseq2.csv', opts);
+FiveFU24hrs = readtable('data/RNA-seq/dougherty_rno_cardio_t24_5FU_gene_deseq2.csv', opts);
 
 %% Run test expression mapping to make sure EntrezIDs are formatted correctly
 data.gene = Dox6hrs.EntrezID;
