@@ -15,4 +15,4 @@ Percent pruned reactions: 96.07%
 Percent pruned metabolites: 94.14%
 Percent change to objective value: 0.0%
 Correlation between activity and transcriptome: R=0.1057, p-value=0.1741
-RIPTiDe run time: 146 seconds
+RIPTiDe run time: 138 seconds
