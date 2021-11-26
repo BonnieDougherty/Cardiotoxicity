@@ -10,9 +10,9 @@ Analyses were run with MATLAB and the COBRA toolbox v3 (accessed 2019-02-18), R 
 
 	project
 	|- README             
-  |
-  |- code/              # code used for the presented analysis
-  | |- Python/ 
+  	|
+	  |- code/              # code used for the presented analysis
+	  | |- Python/ 
  	| |- MATLAB/          	
 	| | |- data/          # necessary models, metabolic tasks, and final results
 	| | |- functions/     # functions necessary for reproducing results
