@@ -26,6 +26,7 @@ library(forcats)
 library(dplyr)
 library(vegan)
 library(DESeq2)
+library(stringr)
 
 
 #### Figure 2 ####
@@ -35,6 +36,40 @@ load(file = "data/RNA-seq/PCA_transcript.R")
 # blind = FALSE means that the experimental design is not used directly in the transformation
 # but is used in estimating the global amount of variability in the counts
 vsd <- vst(dds, blind = FALSE)
+
+transcript.counts = read.table("data/RNA-seq/scaledTPMs.txt", header = TRUE) %>% 
+  select(-DESCRIPTION) %>% 
+  pivot_longer(-NAME, names_to = "sample", values_to = "counts")
+
+sample.metadata = data.frame(sample = c('sample1','sample2','sample3','sample4','sample5','sample6',
+                                           'sample7','sample8','sample9','sample10','sample11','sample12',
+                                           'sample13','sample14','sample15','sample16','sample17','sample18',
+                                           'sample19','sample20','sample21','sample22','sample23','sample24',
+                                           'sample25','sample26','sample27','sample28','sample29','sample30',
+                                           'sample31','sample32','sample33','sample34','sample35','sample36',
+                                           'sample37','sample38','sample39','sample40','sample41','sample42',
+                                           'sample43','sample44','sample45','sample46','sample47','sample48',
+                                           'sample49','sample50','sample51','sample52','sample53','sample54',
+                                           'sample55','sample56','sample57','sample58','sample59','sample60',
+                                           'sample61','sample62','sample63','sample64','sample65'), 
+                                group = c("5FU_24h","5FU_24h","5FU_24h","5FU_24h","5FU_24h","5FU_24h",
+                                            "5FU_6h", "5FU_6h", "5FU_6h", "5FU_6h", "5FU_6h", "5FU_6h",
+                                            "Ace_24h", "Ace_24h", "Ace_24h", "Ace_24h", "Ace_24h", "Ace_24h", "Ace_24h",
+                                            "Ace_6h","Ace_6h","Ace_6h","Ace_6h","Ace_6h","Ace_6h",
+                                            "DMSO1_24h","DMSO1_24h","DMSO1_24h","DMSO1_24h","DMSO1_24h","DMSO1_24h",
+                                            "DMSO1_6h","DMSO1_6h","DMSO1_6h","DMSO1_6h","DMSO1_6h","DMSO1_6h",
+                                            "DMSO2_24h","DMSO2_24h","DMSO2_24h","DMSO2_24h","DMSO2_24h","DMSO2_24h","DMSO2_24h",
+                                            "DMSO2_6h","DMSO2_6h","DMSO2_6h","DMSO2_6h","DMSO2_6h","DMSO2_6h","DMSO2_6h",
+                                            "Dox_24h","Dox_24h","Dox_24h","Dox_24h","Dox_24h","Dox_24h","Dox_24h",
+                                            "Dox_6h","Dox_6h","Dox_6h","Dox_6h","Dox_6h","Dox_6h","Dox_6h"))
+
+condition.metadata <- data.frame(group = c("Ace_6h", "Ace_24h", "DMSO1_6h", "DMSO1_24h", "DMSO2_6h", "DMSO2_24h", "Dox_6h","Dox_24h", "5FU_6h", "5FU_24h"), 
+                                 Timepoint = c('6h','24h','6h','24h','6h','24h','6h','24h','6h','24h'), 
+                                 Drug = c("Ace","Ace","DMSO1","DMSO1","DMSO2","DMSO2","Dox","Dox","5FU","5FU"))
+
+transcript.counts = transcript.counts %>% 
+  left_join(sample.metadata, by = "sample") %>% 
+  left_join(condition.metadata, by = "group")
 
 # Using prcomp to plot PCA
 PCA.results = prcomp(assay(vsd) %>% t(), scale = TRUE, center = TRUE)
@@ -420,6 +455,7 @@ m_df = msigdbr(species = "Rattus norvegicus", category = "H") %>%
   dplyr::select(gs_name, entrez_gene)
 
 enrichment.results <- data.frame()
+KEGG.enrichment.results <- data.frame()
 set.seed(123)
 for(condition in levels(geneList$group)){
 
@@ -436,6 +472,20 @@ for(condition in levels(geneList$group)){
   
   enrichment.results <- enrichment.results %>% 
     rbind(data.frame(gene.enrichment) %>% mutate(condition = condition))
+  
+  gene.enrichment = enrichKEGG(data$EntrezID,
+                               organism = "rno",
+                               keyType = "kegg",
+                               pvalueCutoff = 0.1,
+                               pAdjustMethod = "BH",
+                               minGSSize = 10,
+                               maxGSSize = 500,
+                               qvalueCutoff = 0.2,
+                               use_internal_data = FALSE
+                               )
+  
+  KEGG.enrichment.results <- KEGG.enrichment.results %>% 
+    rbind(data.frame(gene.enrichment) %>% mutate(condition = condition)) 
 }
 
 
@@ -872,10 +922,6 @@ ggsave('results/figures/SupplementalFigure4C_noChange.png',
        ggdraw(align_legend(SupplementalFigure4C_noChange)), 
        dpi = 800, width = 12*0.75, height = 5*0.9)
 
-
-
-################ STOPPED HERE ##################
-
 ################## Figure 4 - TIDEs analysis #######################
 # generate list of genes that are below a FDR threshold for enrichment analysis
 
@@ -910,14 +956,21 @@ TIDEs_df = read.csv(file = "data/TIDEs/TIDEs_rxns.csv") %>%
 
 
 # The number of significant TIDEs for each group
-TIDES %>% inner_join(TIDEs_df) %>% filter(abs(significance) < 0.025) %>% group_by(group) %>% dplyr::count()
+TIDEs %>% inner_join(TIDEs_df) %>% filter(abs(significance) <= 0.05) %>% group_by(group) %>% dplyr::count()
 
 # The task that is most commonly different
 TIDEs %>% 
   inner_join(TIDEs_df) %>% 
-  filter(abs(significance) < 0.025) %>% 
+  filter(abs(significance) <= 0.05) %>% 
   group_by(ID, description) %>% 
   dplyr::count() %>% 
+  View()
+
+TIDEs %>% 
+  mutate(significance = ifelse(abs(significance) < 0.05, 
+                               ifelse(significance > 0, 1, -1), 0)) %>% 
+  select(ID, description, significance, group) %>% 
+  pivot_wider(names_from = "group", values_from = "significance") %>% 
   View()
 
 # Identify the tasks that are commonly different between Dox and 5FU but not Ace
@@ -928,11 +981,9 @@ TIDEs %>%
   dplyr::count() %>% 
   View()
 
-TIDES.01FDR$subsystem = substr(TIDES.01FDR$ID, 0, 1)
-
 # Plot the TIDEs categories, ordered by type of task
 # Load reaction subcategories
-task.categories <- read.xlsx(file = "C:/Users/bvd5nq/Documents/R scripts/Cardiomyocyte Model/data/TIDEs/TIDEs_categories.xlsx", 
+task.categories <- read.xlsx(file = "data/TIDEs/TIDEs_categories.xlsx", 
                              sheetIndex = 2, 
                              header = 1)
 task.categories$category <- factor(task.categories$category, 
@@ -941,14 +992,20 @@ task.categories$plot.name = factor(task.categories$plot.name,
                                    levels = task.categories$plot.name)
 
 # Common tides
-common.TIDEs = TIDES.01FDR %>% 
+common.TIDEs = TIDEs %>% 
   filter(abs(significance) < 0.05) %>% 
   group_by(ID, description) %>% dplyr::count() %>% 
   filter(n > 0) 
 
+# Interesting tasks to plot:
+# A: changes in DNA synthesis
+# B: changes in central carbon metabolism (include discussion of glucose)
+# C: changes in lipid synthesis for Ace treatment
+# D: shared changes across all conditions
+
 # All the tasks are included in a task category
-Figure4.data = TIDES.01FDR %>% 
-  filter(subsystem != "S") %>% 
+Figure4.data = TIDEs %>% 
+  filter(!str_detect(ID, "S")) %>% 
   inner_join(task.categories) %>% 
   inner_join(common.TIDEs %>% dplyr::select(ID)) %>% 
   mutate(sig.label = ifelse(abs(significance) < 0.05, 
@@ -1047,8 +1104,8 @@ Figure4 <- arrangeGrob(Figure4A, Figure4B, Figure4C, Figure4D,
             x = c(0.01, 0.55, 0.55, 0.55), 
             y = c(0.98, 0.98, 0.6, 0.175))
 
-ggsave('figures/Figure4.png', Figure4, 
-       dpi = 800, width = 14, height = 7, units = 'in')
+ggsave('results/figures/Figure4.png', Figure4, 
+       dpi = 800, width = 12, height = 7, units = 'in')
 
 
 # Supplemental figure
@@ -1056,30 +1113,31 @@ ggsave('figures/Figure4.png', Figure4,
 # IDs: C50 and C28
 # Compare to using an FDR < 0.01 and FDR < 0.1
 # Read in actual TIDEs results 
-path.directory = "C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/TIDEs/"
-IDs = xlsx::read.xlsx(file = paste0(path.directory, 'Ace6hrs_01fdr.xlsx'), sheetIndex = 1, header = FALSE) %>% rename(ID = "X1", description = "X2") %>% dplyr::select(ID, description)
+IDs = xlsx::read.xlsx(file = paste0(path.directory, 'Ace6hrs.xlsx'), sheetIndex = 1, header = FALSE) %>%
+  dplyr::rename("ID" = "X1", "description" = "X2") %>% 
+  dplyr::select(ID, description)
 
-random.data = cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Ace6hrs_random_01fdr.xlsx"), 
+random.data = cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Ace6hrs_random.xlsx"), 
                         col_names = FALSE, sheet = 1)) %>% 
   dplyr::mutate(group = "Ace_6h", Drug = "Ace", Timepoint = '6h') %>% 
   filter(ID == "C50" | ID == "C28") %>% 
-  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Ace24hrs_random_01fdr.xlsx"), 
+  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Ace24hrs_random.xlsx"), 
                                      col_names = FALSE, sheet = 1)) %>% 
           dplyr::mutate(group = "Ace_24h", Drug = "Ace", Timepoint = '24h') %>% 
           filter(ID == "C50" | ID == "C28")) %>% 
-  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Dox6hrs_random_01fdr.xlsx"), 
+  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Dox6hrs_random.xlsx"), 
                                      col_names = FALSE, sheet = 1)) %>% 
           dplyr::mutate(group = "Dox_6h", Drug = "Dox", Timepoint = '6h') %>% 
           filter(ID == "C50" | ID == "C28")) %>% 
-  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Dox24hrs_random_01fdr.xlsx"), 
+  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "Dox24hrs_random.xlsx"), 
                                      col_names = FALSE, sheet = 1)) %>% 
           dplyr::mutate(group = "Dox_24h", Drug = "Dox", Timepoint = '24h') %>% 
           filter(ID == "C50" | ID == "C28")) %>% 
-  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "5FU6hrs_random_01fdr.xlsx"), 
+  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "5FU6hrs_random.xlsx"), 
                                      col_names = FALSE, sheet = 1)) %>% 
           dplyr::mutate(group = "5FU_6h", Drug = "5FU", Timepoint = '6h') %>% 
           filter(ID == "C50" | ID == "C28")) %>% 
-  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "5FU24hrs_random_01fdr.xlsx"), 
+  rbind(cbind(IDs, readxl::read_xlsx(path = paste0(path.directory, "5FU24hrs_random.xlsx"), 
                                      col_names = FALSE, sheet = 1)) %>% 
           dplyr::mutate(group = "5FU_24h", Drug = "5FU", Timepoint = '24h') %>% 
           filter(ID == "C50" | ID == "C28")) %>% 
@@ -1088,30 +1146,32 @@ colnames(random.data)[3:1002] <- paste0('X',c(1:1000))
 
 random.data = pivot_longer(random.data, cols = X1:X1000, names_to = "sample", values_to = "random.score")
 
+random.data.metadata = data.frame(group = c('5FU_6h','5FU_24h','Ace_6h','Ace_24h','Dox_6h','Dox_24h'),
+                                  plot.name = c('5FU, 6h','5FU, 24h','Ace, 6h','Ace, 24h','Dox, 6h','Dox, 24h'))
+
 # Left join with the actual data
 random.data = random.data %>% 
-  left_join(TIDES.01FDR, by = c("ID","description","group")) %>% 
+  left_join(TIDEs, by = c("ID","description","group")) %>% 
   mutate(significance = ifelse(abs(significance) < 0.05, 
-                               ifelse(significance < 0, -1, 1), 0))
+                               ifelse(significance < 0, -1, 1), 0)) %>% 
+  left_join(random.data.metadata, by = "group")
 
-random.data$group = factor(random.data$group, levels = c('5FU_6h','5FU_24h','Ace_6h','Ace_24h','Dox_6h','Dox_24h'))
+random.data$group = factor(random.data$plot.name, levels = c('5FU, 6h','5FU, 24h','Ace, 6h','Ace, 24h','Dox, 6h','Dox, 24h'))
 
 annotations <- data.frame(random.data %>% select(description, group, score) %>% unique()) %>% 
   cbind(xpos = c(1.75,1.55,1.85,1.75,10,14,
                  -10,-12,-17,-12,-10,-6),
-        ypos =  c(225,150,205,155,310,450,
-                  200,235,710,400,325,260),
+        ypos =  c(185,115,175,100,260,315,
+                  185,215,575,325,325,215),
         hjustvar = c(0.95,0.95,1,1,1,1,
                      0,0,0,0,0,0),
         vjustvar = c(0.5,0.5,0.5,0.5,0.5,0.5,
                      0.5,0.5,0.5,0.5,0.5,0.5))
 
-random.data.metadata = data.frame(group = c('5FU_6h','5FU_24h','Ace_6h','Ace_24h','Dox_6h','Dox_24h'), 
-                                  plot.name = c('5FU, 6h','5FU, 24h','Ace, 6h','Ace, 24h','Dox, 6h','Dox, 24h'))
 
-random.data = random.data %>% left_join(random.data.metadata)
-random.data$plot.name = factor(random.data$plot.name, 
-                               levels = c('5FU, 6h','5FU, 24h','Ace, 6h','Ace, 24h','Dox, 6h','Dox, 24h'))
+# random.data = random.data %>% left_join(random.data.metadata)
+# random.data$plot.name = factor(random.data$plot.name, 
+#                                levels = c('5FU, 6h','5FU, 24h','Ace, 6h','Ace, 24h','Dox, 6h','Dox, 24h'))
 
 random.data$description = factor(random.data$description, 
                                  levels = c("Arginine to nitric oxide","ROS detoxification"))
@@ -1129,16 +1189,16 @@ SupplementalFigure6 = random.data %>%
   theme_bw() + ylab('Frequency') + xlab('Task score')
 SupplementalFigure6
 
-ggsave('figures/SupplemnetalFigure6.png', SupplementalFigure6, 
+ggsave('results/figures/SupplementalFigure6.png', SupplementalFigure6, 
        dpi = 800, width = 10, height = 4, units = 'in')
 
 
 ############ Figure 5 - RIPTIDE analysis of condition-specific models #####################
 # Read in the metabolomics blank data comparisons
-load(file = "data/blank_metabolomics.Rdata")
+load(file = "data/metabolomics/blank_metabolomics.Rdata")
 
 # Load in mapping between model and metabolomics data
-mapped.metabolites <- xlsx::read.xlsx(file = "C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/mapped_metabolomics.xlsx", 
+mapped.metabolites <- xlsx::read.xlsx(file = "data/metabolomics/mapped_metabolomics.xlsx", 
                                 sheetIndex = 1, header = TRUE)
 
 model.media = blank.comparisons %>% 
@@ -1151,7 +1211,7 @@ model.media$comparison = factor(model.media$comparison)
 
 
 # Add in metabolites that were said to be in the media but not measured in metabolomics data
-media = xlsx::read.xlsx(file = "C:/Users/bvd5nq/Desktop/From Laptop/Papin Lab - Graduate Work/Wet Lab Experiments/Cardiac Cells/Media Formulation.xlsx", 
+media = xlsx::read.xlsx(file = "data/metabolomics/Media Formulation.xlsx", 
                   sheetIndex = 1, startRow = 2, header = TRUE) %>% 
   dplyr::select(metabolite.name, transport.) %>% 
   dplyr::rename(reaction_id = "transport.") %>% 
@@ -1180,57 +1240,40 @@ model.media %>% filter(comparison == "5FU_24h") %>% View()
 
 
 # Adapted from https://github.com/csbl/Jenior_RIPTiDe_2020/blob/master/code/R/figure_5B.R
-path.directory = "C:/Users/bvd5nq/Documents/Python/Cardiotoxicity Integration/individual models/_DNA_RNA_100ATP_production_uptake_noBoundonNoChange/"
+path.directory = "data/RIPTIDE/"
 condition = c('dmso1_24h','fivefu_24h','dmso2_24h','ace_24h','dox_24h', 
               'dmso1_6h','fivefu_6h','dmso2_6h','ace_6h','dox_6h')
-#fraction = c('0.5','0.55','0.6','0.65','0.7','0.75','0.8','0.85','0.9')
-#fraction = c('0.8','0.85','0.9', '0.95')
-fraction = c('0.9')
+
 
 correlations = data.frame()
 # For each fraction, read in the r2 value and p-value
 for(current.condition in condition){
-  for(f in fraction){
-    current.file = paste0(path.directory, current.condition, '/',f,'/parameters.txt')
-    correlations = readtext(current.file) %>% 
-      separate_rows(text, sep = "\n") %>% 
-      separate(text, sep = ":", into = c("text", "value")) %>% 
-      filter(text == "Correlation between activity and transcriptome") %>% 
-      separate(value, sep = ",", into = c("R", "pval")) %>% 
-      separate(R, sep = "=", into = c("junk","R")) %>% dplyr::select(-junk) %>% 
-      separate(pval, sep = "=", into = c("junk","pval")) %>% dplyr::select(-junk) %>% 
-      mutate(condition = current.condition, fraction = f) %>% 
-      dplyr::select(condition, fraction, R, pval) %>% 
-      rbind(correlations)
-  }
+  current.file = paste0(path.directory, current.condition,'_media','/parameters.txt')
+  correlations = readtext(current.file) %>% 
+    separate_rows(text, sep = "\n") %>% 
+    separate(text, sep = ":", into = c("text", "value")) %>% 
+    filter(text == "Correlation between activity and transcriptome") %>% 
+    separate(value, sep = ",", into = c("R", "pval")) %>% 
+    separate(R, sep = "=", into = c("junk","R")) %>% dplyr::select(-junk) %>% 
+    separate(pval, sep = "=", into = c("junk","pval")) %>% dplyr::select(-junk) %>% 
+    mutate(condition = current.condition) %>% 
+    dplyr::select(condition, R, pval) %>% 
+    rbind(correlations)
 }
-
-# Choose the best correlation/pval combo
-chosen.correlation = correlations %>% 
-  group_by(condition) %>% 
-  #summarize(pval = min(pval)) %>% 
-  filter(fraction == 0.9) %>% 
-  left_join(correlations, by = c("condition","fraction")) %>% 
-  mutate(file = paste0(path.directory, condition, '/', fraction,'/flux_samples.tsv')) 
-
-  
 
 data = data.frame()
 set.seed(123)
-sub.sample = sample(1:50, 50, replace = FALSE)
+sub.sample = sample(1:75, 75, replace = FALSE)
 # Read in chosen data
-for(current_file in chosen.correlation$file){
-  current.data = read.table(current_file, header = TRUE)
+for(current.condition in condition){
+  current.file = paste0(path.directory, current.condition,'_media','/flux_samples.tsv')
+  current.data = read.table(current.file, header = TRUE)
   
   data = rbind(data, 
-               current.data[sub.sample,] %>% mutate(sample = 1:50) %>% 
+               current.data[sub.sample,] %>% mutate(sample = 1:75) %>% 
                  pivot_longer(-sample, names_to = "reaction_id", values_to = "flux") %>%
-                 mutate(condition = (chosen.correlation %>% filter(file == current_file))$condition))
+                 mutate(condition = current.condition))
 }
-
-# Make sure you have 50 flux samples for all conditions
-data %>% filter(is.na(flux)) %>% View()
-
 
 metadata.condition = data.frame(metadata = c('dmso1_24h','fivefu_24h','dmso2_24h','ace_24h','dox_24h',
                                              'dmso1_6h','fivefu_6h','dmso2_6h','ace_6h','dox_6h'),
@@ -1248,7 +1291,7 @@ data$timepoint = factor(data$timepoint, levels = c("6h","24h"))
 
 # Get number of reactions in each model
 data %>% select(condition, reaction_id) %>% unique() %>% group_by(condition) %>% dplyr::count()
-
+ 
 reaction.counts.6h = data %>% 
   filter(timepoint == "6h") %>% 
   select(Drug, reaction_id) %>% 
@@ -1269,32 +1312,11 @@ reactions.6h = data %>% filter(timepoint == "6h") %>% select(Drug, reaction_id) 
 # Read in reaction names from model
 reaction.names = xlsx::read.xlsx(file = "data/ncomms14250-s13, iRno RAVEN.xlsx", 
                            header = TRUE, sheetIndex = 1) %>% 
-  dplyr::select(RXNID, NAME, EQUATION, SUBSYSTEM, GENE.ASSOCIATION)
+  dplyr::select(RXNID, NAME, EQUATION, SUBSYSTEM, GENE.ASSOCIATION, EC.NUMBER)
 
 
 
-# Only identify reactions that are unique between each pair of treatment and controls
-reactions.24h %>% 
-  filter(Drug == "Dox" | Drug == "DMSO2") %>% 
-  group_by(reaction_id) %>% 
-  dplyr::count() %>% 
-  group_by(reaction_id) %>% 
-  dplyr::count() %>% 
-  group_by(n) %>% 
-  dplyr::count()
-  
-reactions.24h %>% 
-  filter(Drug == "Dox" | Drug == "DMSO2") %>% 
-  group_by(reaction_id) %>% 
-  dplyr::count() %>%   
-  filter(n == 1) %>% 
-  left_join(reactions.24h) %>% 
-  filter(Drug == "Dox" | Drug == "DMSO2") %>% 
-  group_by(Drug) %>% 
-  dplyr::count()
-
-
-
+# Identify reactions that are unique between each pair of treatment and controls
 unique.5FU.24h = reactions.24h %>% 
   filter(Drug == "5FU" | Drug == "DMSO1") %>% 
   group_by(reaction_id) %>% 
@@ -1349,6 +1371,24 @@ unique.DMSO2.Dox.24h = reactions.24h %>%
   filter(Drug == "DMSO2") %>% 
   left_join(reaction.names, by = c("reaction_id"="RXNID"))
 
+unique.drug = inner_join(unique.Ace.24h, unique.5FU.24h, by = "reaction_id") %>% inner_join(unique.Dox.24h, by = "reaction_id")
+unique.control = inner_join(unique.DMSO1.24h, unique.DMSO2.Ace.24h, by = "reaction_id") %>% inner_join(unique.DMSO2.Dox.24h, by = "reaction_id")
+
+# glutamate is unique to the drug treatment conditions - RCR20594
+plot_data = data %>% 
+  filter(reaction_id %in% c("RCR11194","RCR11165"))
+plot_data$Drug = factor(plot_data$Drug, levels = c('5FU','DMSO1','Ace','Dox','DMSO2'))
+ggplot(plot_data, aes(x = Drug, y = flux, color = reaction_id)) + 
+  geom_jitter() + 
+  theme_bw() +
+  facet_wrap(~timepoint, scales = "free") + 
+  stat_compare_means(comparisons = list(c('5FU','DMSO1'),
+                                        c('Ace','DMSO2'),
+                                        c('Dox','DMSO2')), 
+                     # method.args = list(alternative = "greater"), 
+                     method = "wilcox.test", 
+                     paired = FALSE)
+
 # 6 hour unique reactions
 unique.5FU.6h = reactions.6h %>% 
   filter(Drug == "5FU" | Drug == "DMSO1") %>% 
@@ -1401,12 +1441,13 @@ unique.DMSO2.Dox.6h = reactions.6h %>%
   dplyr::count() %>%   
   filter(n == 1) %>% 
   left_join(reactions.6h) %>% 
-  filter(Drug == "Dox") %>% 
+  filter(Drug == "DMSO2") %>% 
   left_join(reaction.names, by = c("reaction_id"="RXNID"))
 
+unique.drug.6h = inner_join(unique.Ace.6h, unique.5FU.6h, by = "reaction_id") %>% inner_join(unique.Dox.6h, by = "reaction_id")
+unique.control.6h = inner_join(unique.DMSO1.6h, unique.DMSO2.Ace.6h, by = "reaction_id") %>% inner_join(unique.DMSO2.Dox.6h, by = "reaction_id")
 
-
-# Code from Matt's implementation of NMDS: 
+# Code from original RIPTIDE implementation of NMDS: 
 library(vegan)
 library(ape)
 
@@ -1414,7 +1455,7 @@ shared.reactions = data %>%
   #filter(timepoint == "6h") %>% 
   group_by(reaction_id) %>% 
   dplyr::count() %>% 
-  filter(n == 500) %>% 
+  filter(n == 750) %>% 
   select(-n)
 
 NMDS.data = inner_join(data , shared.reactions) %>% 
@@ -1442,49 +1483,39 @@ plot.data$timepoint = factor(plot.data$timepoint, levels = c("6h","24h"))
 
 v_colors = viridis(5, option = "C")
 plot.data$Drug = factor(plot.data$Drug, levels = c("5FU", "DMSO1", "Ace", "Dox", "DMSO2"))
-Figure5C = ggplot(data = plot.data %>% filter(timepoint == "6h"), aes(x = MDS1, y = MDS2, fill = Drug, shape = timepoint)) +
-  geom_point(cex = 3) +
+SupplementalFigure7A = ggplot(data = plot.data %>% filter(timepoint == "6h"), 
+                              aes(x = MDS1, y = MDS2, fill = Drug, shape = timepoint)) +
+  geom_point(cex = 1.75) +
   theme_bw() + 
   xlab("NMDS1") + ylab("NMDS2") + 
   scale_fill_manual(values = v_colors) + 
   scale_shape_manual(values=c(21)) +
   theme(legend.position = "none") + xlim(-0.015,0.011) + ylim(-0.005,0.006)
-Figure5C
+SupplementalFigure7A
 
-Figure5D = ggplot(data = plot.data %>% filter(timepoint == "24h"), aes(x = MDS1, y = MDS2, fill = Drug, shape = timepoint)) +
-  geom_point(cex = 3) +
+SupplementalFigure7B = ggplot(data = plot.data %>% filter(timepoint == "24h"), 
+                              aes(x = MDS1, y = MDS2, fill = Drug, shape = timepoint)) +
+  geom_point(cex = 1.75) +
   theme_bw() + 
   xlab("NMDS1") + ylab("NMDS2") + 
   scale_fill_manual(values = v_colors) + 
   scale_shape_manual(values = c(21)) + 
-  guides(fill=guide_legend(override.aes=list(shape=21))) + xlim(-0.015,0.011) + ylim(-0.005,0.006)
-Figure5D
+  guides(shape = FALSE) + 
+  guides(fill=guide_legend(override.aes=list(shape=21))) + 
+  xlim(-0.015,0.011) + ylim(-0.005,0.006)
+SupplementalFigure7B
 
 # Combine figures into one figure
 gridlayout <- data.matrix(c(1,NA,2)) %>% t()
-Figure5 <- arrangeGrob(Figure5C, Figure5D,
+SupplementalFigure7 <- arrangeGrob(SupplementalFigure7A, SupplementalFigure7B,
                        ncol = 3, 
                        nrow = 1, 
                        #heights = relative_heights,
                        widths = c(0.36+0.05,0.05,0.54),
                        layout_matrix = gridlayout) 
 
-ggsave('figures/Figure5.png',Figure5, 
+ggsave('results/figures/SupplementalFigure7.png', SupplementalFigure7, 
        dpi = 600, width = 8, height = 3, units = 'in')
-
-SupplementalFigure5_1A = ggplot(data = plot.data, aes(x = MDS1, y = MDS2, fill = Drug, shape = timepoint)) +
-  geom_point(cex = 3) +
-  theme_bw() + 
-  facet_wrap(~timepoint) + 
-  xlab("NMDS1") + ylab("NMDS2") + 
-  scale_fill_manual(values = v_colors) + 
-  scale_shape_manual(values = c(21,22)) + 
-  guides(fill=guide_legend(override.aes=list(shape=21))) 
-SupplementalFigure5_1A
-
-ggsave('figures/SupplementalFigure5_1A.png', SupplementalFigure5_1A, 
-       dpi = 600, width = 7, height = 3, units = 'in')
-
 
 # Implementing random forest for predictors between different conditions
 # Adapted from: https://github.com/csbl/Jenior_RIPTiDe_2020/blob/master/code/R/figure_S4.R
@@ -1505,8 +1536,6 @@ comparisons$x = factor(comparisons$x, levels = levels(data$condition))
 comparisons$y = factor(comparisons$y, levels = levels(data$condition))
 
 rf.results = data.frame()
-#for(comparison in comparisons$Comparison){
-
 # Filter out reactions that are correlation == 1 in both groups
 library(caret)
 
@@ -1516,9 +1545,9 @@ for(row in 1:nrow(comparisons)){
     pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
     select(-sample, -condition, -comparison, -Drug, -timepoint)
   
-  corr_x = cor((x))
-  highCorr = findCorrelation(corr_x, cutoff = 0.9)
-  x = x[-highCorr]
+  # corr_x = cor((x))
+  # highCorr = findCorrelation(corr_x, cutoff = 0.9)
+  # x = x[-highCorr]
   
   
   y = data %>% 
@@ -1526,15 +1555,15 @@ for(row in 1:nrow(comparisons)){
     pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
     select(-sample, - condition, -comparison, -Drug, -timepoint)
   
-  corr_y = cor((y))
-  highCorr = findCorrelation(corr_y, cutoff = 0.9)
-  y = y[-highCorr]
+  # corr_y = cor((y))
+  # highCorr = findCorrelation(corr_y, cutoff = 0.9)
+  # y = y[-highCorr]
 
   # Identify shared reactions between the two data sets
   shared <- intersect(colnames(x), colnames(y))
   
-  current.data = rbind(cbind(x[,shared], condition = rep(1,times = 50)),
-                       cbind(y[,shared], condition = rep(0, times = 50))) 
+  current.data = rbind(cbind(x[,shared], condition = rep(1,times = 75)),
+                       cbind(y[,shared], condition = rep(0, times = 75))) 
   current.data$condition = factor(current.data$condition, levels = c(0,1))
   # k0 - number of variables to identify and then stop
   # pdel = 0 - remove only one variable with each iteration
@@ -1547,358 +1576,174 @@ for(row in 1:nrow(comparisons)){
             rownames_to_column("reaction_id"))
 }
 
+# All treatment at 24 or 6 hours vs control conditions
+x = data %>% 
+  filter(timepoint == "24h" & Drug %in% c('5FU','Ace','Dox')) %>% 
+  pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
+  select(-sample, -condition, -comparison, -Drug, -timepoint) %>% 
+  select_if(~ !any(is.na(.)))
 
-colnames(rf.results)[3] = "RF.weight"
+# corr_x = cor((x))
+# highCorr = findCorrelation(corr_x, cutoff = 0.9)
+# x = x[-highCorr]
 
-condition.metadata = data.frame(Comparison = c("5FU_24h - DMSO1_24h","Ace_24h - DMSO2_24h","Dox_24h - DMSO2_24h", 
-                                               "5FU_6h - DMSO1_6h","Ace_6h - DMSO2_6h","Dox_6h - DMSO2_6h"), 
-                                group = c("5FU_24h","Ace_24h","Dox_24h", 
-                                          "5FU_6h","Ace_6h","Dox_6h"), 
-                                Drug = c('5FU','Ace','Dox','5FU','Ace','Dox'), 
-                                timepoint = c('24h','24h','24h','6h','6h','6h'))
 
+y = data %>% 
+  filter(timepoint == "24h" & Drug %in% c('DMSO1','DMSO2')) %>%  
+  pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
+  select(-sample, - condition, -comparison, -Drug, -timepoint) %>% 
+  select_if(~ !any(is.na(.)))
+
+# corr_y = cor((y))
+# highCorr = findCorrelation(corr_y, cutoff = 0.9)
+# y = y[-highCorr]
+
+# Identify shared reactions between the two data sets
+shared <- intersect(colnames(x), colnames(y))
+
+current.data = rbind(cbind(x[,shared], condition = rep(1,times = 75)),
+                     cbind(y[,shared], condition = rep(0, times = 75))) 
+current.data$condition = factor(current.data$condition, levels = c(0,1))
+# k0 - number of variables to identify and then stop
+# pdel = 0 - remove only one variable with each iteration
+current.aucrf = AUCRF(condition ~ ., data = current.data, pdel = 0, k0 = 10, ranking = "MDA")
+
+# Create a feature table
 rf.results = rf.results %>% 
-  filter(RF.weight > 0) %>% 
-  left_join(reaction.names, by = c("reaction_id"="RXNID")) %>% 
-  left_join(condition.metadata, by = c("condition" = "Comparison")) %>% 
-  filter(RF.weight > 0.01)
+  rbind(data.frame(condition = "treatment - control, 24 hrs", 
+                   current.aucrf$ranking[1:10]) %>% 
+          rownames_to_column("reaction_id"))
 
-rf.results %>% filter(timepoint == "24h") %>% group_by(reaction_id) %>% dplyr::count() %>% View()
+# All treatment at 24 or 6 hours vs control conditions
+x = data %>% 
+  filter(timepoint == "6h" & Drug %in% c('5FU','Ace','Dox')) %>% 
+  pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
+  select(-sample, -condition, -comparison, -Drug, -timepoint) %>% 
+  select_if(~ !any(is.na(.)))
+
+# corr_x = cor((x))
+# highCorr = findCorrelation(corr_x, cutoff = 0.9)
+# x = x[-highCorr]
 
 
-reaction.counts.all = data %>% 
-  select(condition, reaction_id) %>% 
-  group_by(reaction_id) %>% 
-  dplyr::count() %>% 
-  left_join(reaction.names, by = c("reaction_id"="RXNID"))
+y = data %>% 
+  filter(timepoint == "6h" & Drug %in% c('DMSO1','DMSO2')) %>%  
+  pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
+  select(-sample, - condition, -comparison, -Drug, -timepoint) %>% 
+  select_if(~ !any(is.na(.)))
 
-rf.results$timepoint = factor(rf.results$timepoint, levels = c("6h","24h"))
+# corr_y = cor((y))
+# highCorr = findCorrelation(corr_y, cutoff = 0.9)
+# y = y[-highCorr]
 
-# Make a bar chart of MDA for each of the condition/timepoint
-Figure6A_ppt = ggplot(rf.results %>% 
-                        filter(group == "Ace_6h") %>% 
-                        mutate(NAME = fct_reorder(NAME, RF.weight)), 
-                      aes(x = NAME, y = sort(RF.weight*100, decreasing = TRUE))) + 
-  geom_bar(fill = v_colors[3], stat = "identity") + 
-  facet_wrap(~timepoint, scales = "free_y") + 
-  coord_flip() + 
-  theme_bw() + 
-  #ylim(0,3) + 
-  ylab('Mean Decrease Accuracy') + 
-  scale_x_discrete(breaks = rf.results$NAME, labels = rf.results$SUBSYSTEM) +
-  xlab('') 
-  
+# Identify shared reactions between the two data sets
+shared <- intersect(colnames(x), colnames(y))
 
-Figure6B_ppt = ggplot(rf.results %>% 
-                        filter(group == "Ace_24h")%>% 
-                        mutate(NAME = fct_reorder(NAME, RF.weight)), 
-                      aes(x = NAME, y = sort(RF.weight*100, decreasing = TRUE))) + 
-  geom_bar(fill = v_colors[3], stat = "identity") + 
-  facet_wrap(~timepoint, scales = "free_y") + 
-  coord_flip() + 
-  theme_bw() + 
-  #ylim(0,3) + 
-  ylab('Mean Decrease Accuracy') + 
-  scale_x_discrete(breaks = rf.results$NAME, labels = rf.results$SUBSYSTEM) +
-  xlab('') 
-  
+current.data = rbind(cbind(x[,shared], condition = rep(1,times = 75)),
+                     cbind(y[,shared], condition = rep(0, times = 75))) 
+current.data$condition = factor(current.data$condition, levels = c(0,1))
+# k0 - number of variables to identify and then stop
+# pdel = 0 - remove only one variable with each iteration
+current.aucrf = AUCRF(condition ~ ., data = current.data, pdel = 0, k0 = 18, ranking = "MDA")
+
+# Create a feature table
+rf.results = rf.results %>% 
+  rbind(data.frame(condition = "treatment - control, 6 hrs", 
+                   current.aucrf$ranking[1:10]) %>% 
+          rownames_to_column("reaction_id"))
+
+rf.unique.reactions = data %>% select(reaction_id, condition) %>% 
+  unique() %>% 
+  left_join(reaction.names, by = c('reaction_id'='RXNID')) %>% 
+  filter(SUBSYSTEM == "Transport") %>% 
+  select(reaction_id) %>% 
+  unique() %>% pull(reaction_id)
+
+
+
+# RCR10294 (connect back to transcript expression differences; 25630;24651;100364062)
+# RCR11159 (connects with above; same GPR rules)
+# for Ace, RCR10294 -> RCR10443 -> RCR10444 (no change) -> RCR11299 (no change) -> 
+# RCR11300 (no change) -> RCR11301 (no change) -> RCR14581 (293620/no change) ->
+# RCR13197 (no change) -> RCR11105 (no change) -> RCR10471 (no change) -> RCR11165 (some change)
+# glutamate is unique to the drug treatment conditions - RCR20594
+plot_data = data %>% 
+  filter(reaction_id %in% test_rxns) %>% 
+  filter(timepoint == "24h") %>% 
+  left_join(reaction.names %>% select(RXNID, EQUATION), by = c('reaction_id'='RXNID'))
+#mutate(Drug = ifelse(Drug %in% c('5FU','Ace','Dox'), 'treatment', 'control'))
+plot_data$Drug = factor(plot_data$Drug, levels = c('5FU','DMSO1','Ace','Dox','DMSO2'))
+ggplot(plot_data, aes(x = Drug, y = flux, fill = Drug)) + 
+  geom_boxplot() + 
+  theme_bw() +
+  scale_fill_manual(values = v_colors) + 
+  facet_wrap(~reaction_id, scales = "free", ncol = 8) + 
+  # stat_compare_means(comparisons = list(c('5FU','DMSO1'),
+  #                                       c('Ace','DMSO2'),
+  #                                       c('Dox','DMSO2')), 
+  #                    # method.args = list(alternative = "greater"), 
+  #                    method = "wilcox.test", 
+  #                    paired = FALSE) + 
+  xlab("") + 
+  ylab("Predicted flux") + 
+  theme(strip.text.x = element_text(size = 7), 
+        legend.position = "none")
+
+# figure out the next reaction
+test_rxns = reaction.names %>% filter(str_detect(EQUATION, "xanthosine")) %>% 
+  inner_join(data %>% select(reaction_id, condition) %>% unique() %>% filter(condition == "ace_24h"), by = c('RXNID'='reaction_id')) %>% 
+  pull(RXNID)
+
+
+# glutamate is unique to the drug treatment conditions - RCR20594
+plot_data = data %>% 
+  filter(reaction_id %in% c('RCR10294','RCR11159')) %>% 
+  filter(timepoint == "24h") %>% 
+  left_join(reaction.names %>% select(RXNID, EQUATION), by = c('reaction_id'='RXNID'))
+#mutate(Drug = ifelse(Drug %in% c('5FU','Ace','Dox'), 'treatment', 'control'))
+plot_data$Drug = factor(plot_data$Drug, levels = c('5FU','DMSO1','Ace','Dox','DMSO2'))
+Figure5C = ggplot(plot_data, aes(x = Drug, y = flux, fill = Drug)) + 
+  geom_boxplot() + 
+  theme_bw() +
+  scale_fill_manual(values = v_colors) + 
+  facet_wrap(~EQUATION, scales = "free", ncol = 8) + 
+  # stat_compare_means(comparisons = list(c('5FU','DMSO1'),
+  #                                       c('Ace','DMSO2'),
+  #                                       c('Dox','DMSO2')), 
+  #                    # method.args = list(alternative = "greater"), 
+  #                    method = "wilcox.test", 
+  #                    paired = FALSE) + 
+  xlab("") + 
+  ylab("Predicted flux") + 
+  theme(strip.text.x = element_text(size = 7), 
+        legend.position = "none")
+Figure5C
+
+# RCR10294: 25630;24651;100364062
+# RCR11159: 25630;24651;100364062	
+
+# Plot the gene expression values
+plot_data = transcript.counts %>% filter(NAME %in% c('100364062')) %>% filter(Timepoint == "24h")
+plot_data$Drug = factor(plot_data$Drug, levels = c('5FU','DMSO1','Ace','Dox','DMSO2'))
+plot_data$Timepoint = factor(plot_data$Timepoint, levels= c('6h','24h'))
+Figure5D = ggplot(plot_data, aes(x = Drug, y = counts)) + 
+  geom_jitter(aes(fill = Drug), width = 0.25, color = "black", pch = 21) + 
+  theme_bw() +
+  scale_fill_manual(values = v_colors) + 
+  # facet_wrap(~NAME + Timepoint, scales = "free") + 
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5)) + 
+  xlab("") + ylab(expression(paste("Scaled TPMs for ", italic("PKM2")))) 
+Figure5D
 
 # Combine figures into one figure
 gridlayout <- data.matrix(c(1,NA,2)) %>% t()
-Figure6_ppt <- arrangeGrob(Figure6A_ppt, Figure6B_ppt,
-                       ncol = 3, 
-                       nrow = 1, 
-                       #heights = relative_heights,
-                       widths = c(0.485,0.04,0.475),
-                       layout_matrix = gridlayout) 
-
-ggsave('figures/Figure6_ppt.png',Figure6_ppt, 
-       dpi = 600, width = 10, height = 3, units = 'in')
-
-
-
-# Identified two reactions that are different between 5FU and Dox at 24 hrs but not Ace
-# 5: RCR10441 (not correlated), RCR11151 (RCR10484, RCR30086, RCR41524, RCR14255, RCR11222)
-# 4: RCR10103 (not correlated), RCR10468 (not correlated)
-
-# Are there other reactions that are correlated?
-
-
-
-# Filter out only Dox 6 hour data to show as an example
-# Plot fluxes for specific reaction
-ggplot(data %>% filter(reaction_id == "RCR10441"), aes(x = Drug, y = flux)) + 
-  geom_jitter(width = 0.05) + 
-  facet_wrap(~timepoint) + 
-  theme_bw()
-
-ggplot(gene.expression.data %>% filter(EntrezID %in% c("24552","363110")), 
-       aes(x = Drug, y = logfc)) + 
-  geom_jitter(width = 0.05) + 
-  facet_wrap(~Timepoint) + 
-  theme_bw()
-
-
-
-
-############# Supplemenetal Figures for 6 hour toxicity data #########################
-# Identified biomarkers are early biomarkers that are shared across different compounds
-# Confirm these biomarkers using previously published data in human iPSCs
-
-path.directory = "C:/Users/bvd5nq/Documents/Python/Cardiotoxicity Integration/individual models/"
-condition = c('dmso1_6h','fivefu_6h','dmso2_6h','ace_6h','dox_6h')
-fraction = c('0.5','0.55','0.6','0.65','0.7','0.75','0.8','0.85','0.9')
-
-correlations = data.frame()
-# For each fraction, read in the r2 value and p-value
-for(current.condition in condition){
-  for(f in fraction){
-    current.file = paste0(path.directory, current.condition, '/',f,'/parameters.txt')
-    correlations = readtext(current.file) %>% 
-      separate_rows(text, sep = "\n") %>% 
-      separate(text, sep = ":", into = c("text", "value")) %>% 
-      filter(text == "Correlation between activity and transcriptome") %>% 
-      separate(value, sep = ",", into = c("R", "pval")) %>% 
-      separate(R, sep = "=", into = c("junk","R")) %>% select(-junk) %>% 
-      separate(pval, sep = "=", into = c("junk","pval")) %>% select(-junk) %>% 
-      mutate(condition = current.condition, fraction = f) %>% 
-      select(condition, fraction, R, pval) %>% 
-      rbind(correlations)
-  }
-}
-
-# Choose the best correlation/pval combo
-chosen.correlation = correlations %>% 
-  group_by(condition) %>% 
-  summarize(R = max(R), pval = min(pval)) %>% 
-  left_join(correlations) %>% 
-  mutate(file = paste0(path.directory, condition, '/', fraction,'/flux_samples.tsv'))
-
-data = data.frame()
-set.seed(123)
-sub.sample = sample(1:500, 100, replace = FALSE)
-# Read in chosen data
-for(current_file in chosen.correlation$file){
-  current.data = read.table(current_file, header = TRUE)
-  
-  data = rbind(data, 
-               current.data[sub.sample,] %>% mutate(sample = 1:100) %>% 
-                 pivot_longer(-sample, names_to = "reaction_id", values_to = "flux") %>%
-                 mutate(condition = (chosen.correlation %>% filter(file == current_file))$condition))
-}
-
-
-metadata.condition = data.frame(metadata = c('dmso1_24h','fivefu_24h','dmso2_24h','ace_24h','dox_24h',
-                                             'dmso1_6h','fivefu_6h','dmso2_6h','ace_6h','dox_6h'),
-                                Drug = c('DMSO1','5FU','DMSO2','Ace','Dox',
-                                         'DMSO1','5FU','DMSO2','Ace','Dox'), 
-                                timepoint = c('24h','24h','24h','24h','24h',
-                                              '6h','6h','6h','6h','6h'))
-
-# Code from Matt's implementation of NMDS: 
-library(vegan)
-library(ape)
-
-shared.reactions = data %>% group_by(reaction_id) %>% dplyr::count() %>% filter(n == 500) %>% select(-n)
-
-NMDS.data = inner_join(data, shared.reactions) %>% 
-  pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
-  select(-sample) %>% 
-  select(-condition)
-NMDS.metadata = inner_join(data, shared.reactions) %>% 
-  pivot_wider(names_from = "reaction_id", values_from = "flux") %>%
-  select(sample, condition)
-
-# Account for negative flux values:
-NMDS.data <- as.matrix(NMDS.data) + abs(min(NMDS.data))
-flux_bray_dist <- vegdist(NMDS.data, method='bray') # Bray-Curtis
-library(ape)
-
-# Try NMDS to reduce to two dimensions
-# Don't worry about not converging
-nmds = metaMDS(NMDS.data, distance = "bray")
-
-plot.data = data.frame(nmds$points) %>% 
-  cbind(NMDS.metadata) %>% 
-  inner_join(metadata.condition, by = c("condition"="metadata"))
-
-v_colors = viridis(5, option = "C")
-plot.data$Drug = factor(plot.data$Drug, levels = c("5FU", "DMSO1", "Ace", "Dox", "DMSO2"))
-SupplementalFigure3 = ggplot() +
-  geom_point(data = plot.data, aes(x = MDS1, y = MDS2, color = Drug)) +
-  theme_bw() + 
-  xlab("NMDS1") + ylab("NMDS2") + 
-  scale_color_manual(values = v_colors)
-SupplementalFigure3
-
-# Implementing random forest for predictors between different conditions
-# Adapted from: https://github.com/csbl/Jenior_RIPTiDe_2020/blob/master/code/R/figure_S4.R
-
-# Run AUCRF and obtain feature lists
-library(AUCRF)
-set.seed(123)
-
-# Format the data correctly for RF
-comparisons = data.frame(Comparison = c("5FU_6h - DMSO1_6h","Ace_6h - DMSO2_6h","Dox_6h - DMSO2_6h"), 
-                         x = c("fivefu_6h","ace_6h","dox_6h"), 
-                         y = c("dmso1_6h","dmso2_6h","dmso2_6h"))
-
-rf.results = data.frame()
-for(comparison in comparisons$Comparison){
-  x = data %>% 
-    filter(condition == (comparisons %>% filter(Comparison == comparison))$x) %>% 
-    pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
-    select(-sample, -condition)
-  y = data %>% 
-    filter(condition == (comparisons %>% filter(Comparison == comparison))$y) %>% 
-    pivot_wider(names_from = "reaction_id", values_from = "flux") %>% 
-    select(-sample, - condition)
-  
-  # Identify shared reactions between the two data sets
-  shared <- intersect(colnames(x), colnames(y))
-  
-  current.data = rbind(cbind(x[,shared], condition = rep(1,times = 100)),
-                       cbind(y[,shared], condition = rep(0, times = 100)))
-  current.data$condition = factor(current.data$condition, levels = c(0,1))
-  # k0 - number of variables to identify and then stop
-  # pdel = 0 - remove only one variable with each iteration
-  current.aucrf = AUCRF(condition ~ ., data = current.data, pdel = 0, k0 = 20)
-  
-  # Create a feature table
-  rf.results = rf.results %>% 
-    rbind(data.frame(condition = comparison, 
-                     current.aucrf$ranking) %>% 
-            rownames_to_column("reaction_id"))
-}
-
-colnames(rf.results)[3] = "RF.weight"
-
-condition.metadata = data.frame(Comparison = c("5FU_6h - DMSO1_6h","Ace_6h - DMSO2_6h","Dox_6h - DMSO2_6h"), 
-                                group = c("fivefu_6h","ace_6h","dox_6h"))
-
-rf.results = rf.results %>% 
-  filter(RF.weight != 0)
-
-# Find common reactions
-unique.reactions = rf.results %>% group_by(reaction_id) %>% dplyr::count() %>% filter(n == 1) %>% select(reaction_id)
-
-# Plot the top 10 unique reactions for each condition
-plot.data = rf.results %>% 
-  inner_join(unique.reactions) %>% 
-  group_by(condition) %>% 
-  top_n(n = 10, wt = RF.weight) %>% 
-  inner_join(condition.metadata, by = c("condition"="Comparison")) %>% 
-  inner_join(metadata.condition, by = c("group"="metadata"))
-plot.data = plot.data[order(plot.data$RF.weight),]
-plot.data$reaction_id = factor(plot.data$reaction_id, levels = plot.data$reaction_id)
-
-
-v_colors = viridis(5, option = "C")
-plot.data$Drug = factor(plot.data$Drug, levels = c("5FU","Ace","Dox"))
-Figure5C = ggplot(plot.data) + 
-  geom_bar(aes(x = reaction_id, y = RF.weight, fill = Drug), stat = "identity") + 
-  facet_wrap(~Drug, scales = "free", nrow = 3) + 
-  coord_flip() + 
-  theme_bw() + 
-  xlab("") + 
-  scale_fill_manual(values = v_colors[c(1,3,4)]) + 
-  theme(legend.position = "none")
-Figure5C
-
-# Plot the weights for shared reactions across individual comparisons
-shared.reactions = rf.results %>% group_by(reaction_id) %>% dplyr::count() %>% filter(n == 3) %>% select(reaction_id)
-
-weights = rf.results %>% inner_join(shared.reactions) %>% group_by(reaction_id) %>% summarize(total.weight = sum(RF.weight))
-weights = weights[order(weights$total.weight),]
-
-plot.data = rf.results %>% 
-  inner_join(shared.reactions) %>% 
-  inner_join(weights) %>% 
-  inner_join(condition.metadata, by = c("condition"="Comparison")) %>% 
-  inner_join(metadata.condition, by = c("group"="metadata"))
-plot.data = plot.data[order(plot.data$total.weight),]
-plot.data$reaction_id = factor(plot.data$reaction_id, levels = weights$reaction_id)
-
-plot.data$Drug = factor(plot.data$Drug, levels = c("5FU","Ace","Dox"))
-Figure5D = ggplot(plot.data) + 
-  geom_bar(aes(x = reaction_id, y = RF.weight, fill = Drug), stat = "identity", position = "dodge") + 
-  coord_flip() + 
-  theme_bw() + 
-  xlab("") + 
-  scale_fill_manual(values = v_colors[c(1,3,4)])
-Figure5D
-
-rat.6hr.biomarkers = rf.results %>% 
-  inner_join(condition.metadata, by = c("condition"="Comparison")) %>% 
-  inner_join(metadata.condition, by = c("group"="metadata"))
-
-shared.biomarkers = inner_join(rat.6hr.biomarkers, rat.24hr.biomarkers, by = c("reaction_id","Drug"))
-
-
-
-
-############## Supplemental Code ############################
-path.directory <- 'C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/RNA-seq DEG data/'
-# Re-write DEGs for TIDEs analysis with FDR < 0.01
-# information needed: gene name
-gene.expression.data <- read.table(file = paste0(path.directory, "dougherty_rno_cardio_t6_ace_gene_deseq2.txt"), 
-                                   header = TRUE) %>% 
-  mutate(group = "Ace_6h", Drug = "Ace", Timepoint = '6h') %>% 
-  rbind(read.table(file = paste0(path.directory, "dougherty_rno_cardio_t24_ace_gene_deseq2.txt"), 
-                   header = TRUE) %>% 
-          mutate(group = "Ace_24h", Drug = "Ace", Timepoint = '24h')) %>% 
-  rbind(read.table(file = paste0(path.directory, "dougherty_rno_cardio_t6_dox_gene_deseq2.txt"), 
-                   header = TRUE) %>% 
-          mutate(group = "Dox_6h", Drug = "Dox", Timepoint = '6h')) %>% 
-  rbind(read.table(file = paste0(path.directory, "dougherty_rno_cardio_t24_dox_gene_deseq2.txt"), 
-                   header = TRUE) %>% 
-          mutate(group = "Dox_24h", Drug = "Dox", Timepoint = '24h')) %>% 
-  rbind(read.table(file = paste0(path.directory, "dougherty_rno_cardio_t6_5fu_gene_deseq2.txt"), 
-                   header = TRUE) %>% 
-          mutate(group = "5FU_6h", Drug = "5FU", Timepoint = '6h')) %>% 
-  rbind(read.table(file = paste0(path.directory, "dougherty_rno_cardio_t24_5fu_gene_deseq2.txt"), 
-                   header = TRUE) %>% 
-          mutate(group = "5FU_24h", Drug = "5FU", Timepoint = '24h'))
-
-gene.expression.data$group = factor(gene.expression.data$group)
-
-# Only use metabolic genes when shuffling, take out variability from other large FCs?
-genes = read.xlsx(file = "C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/data/ncomms14250-s13, iRno RAVEN.xlsx", 
-                  sheetIndex = 5, header = TRUE) %>% 
-  select(GENE.NAME)
-
-genes$GENE.NAME = factor(genes$GENE.NAME)
-gene.expression.data$EntrezID = factor(gene.expression.data$EntrezID)
-
-path.directory = 'C:/Users/bvd5nq/Documents/R scripts/Analyzing RNA-seq data/RNA-seq DEG data/'
-
-for(condition in levels(gene.expression.data$group)){
-  current.data = gene.expression.data %>% 
-    inner_join(genes, by = c("EntrezID"="GENE.NAME")) %>% 
-    mutate(logfc = ifelse(fdr < 0.01, logfc, 0)) %>% 
-    filter(group == condition) %>% 
-    write.table(paste0(path.directory, "dougherty_rno_cardio_t6_",condition,"_gene_deseq2_01fdr.csv"), 
-                sep = ",", quote = F, row.names = F)
-}
-
-gene.expression.data %>% 
-  inner_join(genes, by = c("EntrezID"="GENE.NAME")) %>% 
-  group_by(group) %>% 
-  filter(fdr < 0.1) %>% 
-  dplyr::count()
-
-
-
-
-
-# Load in TPM data for all conditions
-# Merge with the genes that are in the model
-# plot DMSO1 vs DMSO2 to see the genes that are the major difference -> help explain differences between 5FU and Ace/Dox conditions
-
-
-
-
-
-
-
-
+Figure5 <- arrangeGrob(Figure5C, Figure5D,
+                                   ncol = 3, 
+                                   nrow = 1, 
+                                   #heights = relative_heights,
+                                   widths = c(0.60+0.025,0.025,0.35),
+                                   layout_matrix = gridlayout) 
+
+ggsave('results/figures/Figure5.png',Figure5, 
+       dpi = 600, width = 8, height = 3, units = 'in')
