@@ -11,21 +11,19 @@ Analyses were run with MATLAB and the COBRA toolbox v3 (accessed 2019-02-18), R 
 	project
 	|- README             
   	|
-	  |- code/              # code used for the presented analysis
-	  | |- Python/ 
- 	| |- MATLAB/          	
-	| | |- data/          # necessary models, metabolic tasks, and final results
+	|- code/              # code used for the presented analysis
+ 	| |- MATLAB/          # building rat heart-specific model and running TIDEs
 	| | |- functions/     # functions necessary for reproducing results
-	| | |- scripts/       # code for reproducing building draft iCardio models, model curation, and TIDEs analysis
- 	| |- R/               # code for microarray DEG analysis
-	| | |- data/          # necessary external files to run analyses
-	| | |- scripts/       # code for reproducing analyses and figures
+	| |- Python/          # python notebooks for reproducing RIPTIDE integration
+ 	| |- R/               # scripts for running RNA-seq, metabolomics, dose response, and Seahorse analysis with figure code
  	|
  	|- results/           # figures and supplementary tables
  	| |- figures/
-	| |- tables/
-
-
-### Re-running the TIDEs pipeline for your own data
-
-To run the TIDEs pipeline, you must first run the generateMinRxnList() function to generate a MATLAB structure that contains an entry for each metabolic task, including the reactions necessary for that task. For the analysis presented in the paper, reactions without GPRs were removed (removeNoGPR = 'true'). Next, run the calculateTIDEscores() function with the model, minRxnList, and data for your study. The function will return a structure with a task score for each task in the minRxnList structure with the calculated significance for the task compared to randomly shuffled data. 
+	| |- supplement/
+	
+	|- data/           # figures and supplementary tables
+ 	| |- experimental/    # raw Seahorse and dose response data
+	| |- metabolomics/    # raw and processed metabolomics data
+	| |- RIPTIDE/         # RIPTIDE results for each condition
+	| |- RNA-seq/         # DEGs used as input for TIDEs and TPMs for RIPTIDE
+	| |- TIDEs/           # output of TIDEs for each condition
